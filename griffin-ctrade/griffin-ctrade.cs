@@ -17,15 +17,9 @@ namespace cAlgo.Robots
 
         protected override void OnStart()
         {
-            // To learn more about cTrader Automate visit our Help Center:
-            // https://help.ctrader.com/ctrader-automate
-            AiEnterResponse aiEnterResponse = new AiEnterResponse
-                {
-                    decision = true,       // Example value for the decision
-                    volume = 100.0,        // Example value for the volume
-                    orderPrice = 1.2345,   // Example value for the order price
-                    stopLoss = 1.2300      // Example value for the stop loss
-                };
+            TradeDecisionService tradeDecisionService = new TradeDecisionService();
+
+            AiEnterResponse aiEnterResponse = tradeDecisionService.GetBuyDecision();
 
             Print(aiEnterResponse);
 
