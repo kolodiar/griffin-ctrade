@@ -100,6 +100,8 @@ namespace cAlgo.Robots
             // Handle cBot stop here
         }
 
+        // TRADE FUNCTIONS
+
         private AiEnterResponse OpenPositionInstant(AiEnterResponse decisiom){
             // TODO
             return new AiEnterResponse
@@ -133,7 +135,7 @@ namespace cAlgo.Robots
                 };
         }
 
-        private AiEnterResponse OpenPositionPending(AiEnterResponse decisiom, bool updateTakeProfit = true){
+        private AiEnterResponse OpenPositionPending(AiEnterResponse decisiom, bool updatetakeProfit = true){
             // TODO
             return new AiEnterResponse
                 {
@@ -143,6 +145,8 @@ namespace cAlgo.Robots
                     volume = 0.0
                 };
         }
+
+        // UTILITIES
 
         private double CalculateVolume(double orderPrice)
         {
@@ -159,6 +163,118 @@ namespace cAlgo.Robots
         }
 
 
+        // VALIDATION
+
+        private double GetStopLevelPoints()
+        {
+            // As there's no direct equivalent in cAlgo for SYMBOL_TRADE_STOPS_LEVEL,
+            // you might use the current spread as a proxy or a predefined value based on your broker's requirements.
+            // This example demonstrates using the current spread as an approximation.
+            
+            // Note: The spread is in terms of the symbol's price units, not points.
+            // If you need the value in points, you'd adjust based on the symbol's pip size.
+            double spreadInPriceUnits = Symbol.Spread;
+            double spreadInPoints = spreadInPriceUnits / Symbol.PipSize; // Convert spread from price units to points
+            
+            // You might want to add a buffer to the spread to ensure compliance with minimum stop levels during volatile periods.
+            double buffer = 5; // Example buffer in points TODO
+            double stopLevelPoints = spreadInPoints + buffer;
+
+            return stopLevelPoints;
+        }
+
+        private void ValidateEnterDecisionForBuyLimit(ref AiEnterResponse decision)
+        {
+            Print("Run decision validation (buyLimit):");
+            Print($"Input: orderPrice={decision.orderPrice}, stopLoss={decision.stopLoss}");
+
+            // Normalize prices using the Symbol's pip size
+            decision.orderPrice = Math.Round(decision.orderPrice, Symbol.Digits);
+            decision.stopLoss = Math.Round(decision.stopLoss, Symbol.Digits);
+            Print($"After normalization: orderPrice={decision.orderPrice}, stopLoss={decision.stopLoss}");
+
+            // Ensure the order price is not too close to the current ask price, considering the minimum stop level
+            double stopLevelInPrice = GetStopLevelPoints() * Symbol.PipSize;
+            var askPrice = Symbol.Ask;
+            if (decision.orderPrice > askPrice- stopLevelInPrice)
+            {
+                decision.orderPrice = askPrice - stopLevelInPrice;
+            }
+
+            // For a buy limit order, the stop loss must be below the order price
+            // Ensure stop loss is not set too close to the order price, considering the minimum stop level
+            if (decision.stopLoss >= decision.orderPrice - stopLevelInPrice)
+            {
+                decision.stopLoss = decision.orderPrice - stopLevelInPrice; // Adjust this logic based on your risk management
+            }
+            
+            Print($"After checking with stop_level: orderPrice={decision.orderPrice}, stopLoss={decision.stopLoss}");
+            Print("Finish validation");
+        }
+
+        private void ValidateEnterDecisionForInstantBuy(ref AiEnterResponse decision)
+        {
+            Print("Run decision validation (buy instant):");
+            Print($"Input: orderPrice={decision.orderPrice}, stopLoss={decision.stopLoss}");
+
+            // Normalize prices using the Symbol's pip size
+            decision.orderPrice = Math.Round(decision.orderPrice, Symbol.Digits);
+            decision.stopLoss = Math.Round(decision.stopLoss, Symbol.Digits);
+            Print($"After normalization: orderPrice={decision.orderPrice}, stopLoss={decision.stopLoss}");
+
+            // Ensure the stop loss is not set too close to the current bid price, considering the minimum stop level
+            double stopLevelInPrice = GetStopLevelPoints() * Symbol.PipSize;
+            if (decision.stopLoss > Symbol.Bid - stopLevelInPrice)
+            {
+                decision.stopLoss = Symbol.Bid - stopLevelInPrice; // Adjust based on risk management
+            }
+            
+            Print($"After checking with stop_level: orderPrice={decision.orderPrice} (no validation for instant buy), stopLoss={decision.stopLoss}");
+            Print("Finish validation");
+        }
+
+        private void ValidateExitDecision(ref AiExitResponse decision)
+        {
+            Print("Run decision validation: (exit/update)");
+            Print($"Input: stopLoss={decision.stopLoss}, takeProfit={decision.takeProfit}");
+
+            // Normalize prices using the Symbol's pip size
+            decision.takeProfit = Math.Round(decision.takeProfit, Symbol.Digits);
+            decision.stopLoss = Math.Round(decision.stopLoss, Symbol.Digits);
+            Print($"After normalization: stopLoss={decision.stopLoss}, takeProfit={decision.takeProfit}");
+
+            // Assuming you have access to the current position's stopLoss
+            var currentPositionSL = Positions[0].StopLoss ?? 0; // Replace currentPosition with your actual position object
+
+            // Verify that stopLoss can only be updated to a higher value (never let stopLoss go lower)
+            if (decision.stopLoss < currentPositionSL)
+            {
+                decision.stopLoss = currentPositionSL;
+            }
+            Print($"After checking if stopLoss is not getting lower: stopLoss={decision.stopLoss}, takeProfit={decision.takeProfit}");
+
+            double currentstopLossLevel = Positions[0].StopLoss ?? 0;
+            double stopLevelInPrice = currentstopLossLevel * Symbol.PipSize;
+
+            // Assuming decision.takeProfit is a price, not a distance
+            if (decision.takeProfit != 0 && decision.takeProfit < Symbol.Bid + stopLevelInPrice)
+            {
+                decision.takeProfit = Symbol.Bid + stopLevelInPrice; // Adjust as necessary
+            }
+
+            // Ensure stopLoss respects the minimum distance from the current price
+            if (decision.stopLoss > Symbol.Bid - stopLevelInPrice)
+            {
+                decision.stopLoss = Symbol.Bid - stopLevelInPrice; // Adjust as necessary
+            }
+            Print($"After checking with stop_level: stopLoss={decision.stopLoss}, takeProfit={decision.takeProfit}");
+            Print("Finish validation");
+        }
+
+
+
+
+        // STATE MANAGEMENT
 
         private State IdentifyCurrentState()
         {
