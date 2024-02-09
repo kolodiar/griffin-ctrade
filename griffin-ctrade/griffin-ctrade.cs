@@ -102,48 +102,109 @@ namespace cAlgo.Robots
 
         // TRADE FUNCTIONS
 
-        private AiEnterResponse OpenPositionInstant(AiEnterResponse decisiom){
-            // TODO
-            return new AiEnterResponse
-                {
-                    decision = false,
-                    orderPrice = 0.0,
-                    stopLoss = 0.0,
-                    volume = 0.0
-                };
+        private void OpenPositionInstant(AiEnterResponse decision)
+        {
+            ValidateEnterDecisionForInstantBuy(ref decision); // Assuming this method adjusts decision in-place
+            double volume = CalculateVolume(Symbol.Ask);
+            Print("Current Ask price: ", Symbol.Ask);
+            Print($"Creating instant buy order: volume={volume}, order_price=0.0 (actual Ask will be used), stop_loss={decision.stopLoss}");
+
+            // Execute a market order to buy immediately at the current ask price
+            var tradeResult = ExecuteMarketOrder(TradeType.Buy, SymbolName, volume, "Instant buy order on current Ask price", null, decision.stopLoss);
+
+            if (tradeResult.IsSuccessful)
+            {
+                Print($"Buy order created, position ID: {tradeResult.Position.Id}");
+            }
+            else
+            {
+                Print($"Error executing buy order: {tradeResult.Error}");
+            }
         }
 
-        private AiEnterResponse OpenPositionPendingWithRequest(AiEnterResponse decisiom){
-            // TODO
-            return new AiEnterResponse
-                {
-                    decision = false,
-                    orderPrice = 0.0,
-                    stopLoss = 0.0,
-                    volume = 0.0
-                };
+
+        private void OpenPositionPendingWithRequest(AiEnterResponse decision)
+        {
+            ValidateEnterDecisionForBuyLimit(ref decision); // Assuming this validates and adjusts the decision
+            double volume = CalculateVolume(Symbol.Ask); // Assuming this calculates volume based on the current ask price
+
+            // Refreshing rates is not needed in cAlgo as it automatically handles rate updates
+
+            // Create a buy limit order based on the decision parameters
+            var tradeResult = PlaceLimitOrder(TradeType.Buy, SymbolName, volume, decision.orderPrice, "buyLimit order with request", decision.stopLoss, 0);
+
+            if (tradeResult.IsSuccessful)
+            {
+                Print("Order successfully placed. Order ID: ", tradeResult.PendingOrder.Id);
+            }
+            else
+            {
+                Print("OrderSend error: ", tradeResult.Error);
+            }
+
+            // No direct equivalent for printing 'retcode', 'deal', and 'order' as in MQL,
+            // but you can log the result of the operation as shown above.
+            Print("Order send finished");
         }
 
-        private AiEnterResponse OpenPositionPending(AiEnterResponse decisiom){
-            // TODO
-            return new AiEnterResponse
-                {
-                    decision = false,
-                    orderPrice = 0.0,
-                    stopLoss = 0.0,
-                    volume = 0.0
-                };
+        private void OpenPositionPending(AiEnterResponse decision)
+        {
+            ValidateEnterDecisionForBuyLimit(ref decision);
+            double volume = CalculateVolume(decision.orderPrice); // Ensure this calculates based on the decision's order price
+            Print("Current Ask price: ", Symbol.Ask);
+            Print($"Creating pending buy order: volume={volume}, order_price={decision.orderPrice}, stop_loss={decision.stopLoss}");
+
+            // Place a Buy Limit order
+            var tradeResult = PlaceLimitOrder(TradeType.Buy, SymbolName, volume, decision.orderPrice, "Pending buy order", decision.stopLoss, 0);
+
+            if (tradeResult.IsSuccessful)
+            {
+                // Use tradeResult.PendingOrder.Id to access the ID of the placed order
+                Print($"Buy limit order created, order ID: {tradeResult.PendingOrder.Id}");
+            }
+            else
+            {
+                // Error handling
+                Print($"Error executing buy limit order: {tradeResult.Error}");
+            }
         }
 
-        private AiEnterResponse OpenPositionPending(AiEnterResponse decisiom, bool updatetakeProfit = true){
-            // TODO
-            return new AiEnterResponse
+
+        private void UpdatePosition(AiExitResponse decision, bool updateTakeProfit = true)
+        {
+            ValidateExitDecision(ref decision); // Ensure this adjusts the decision object as needed
+            Print("Current Ask price: ", Symbol.Ask);
+            Print($"Updating position: stop_loss={decision.stopLoss}, take_profit={(updateTakeProfit ? decision.takeProfit.ToString() : "Unchanged")}");
+
+            // Assuming you have identified the position you want to modify, for example, the first or only position
+            if (Positions.Count > 0)
+            {
+                var position = Positions[0]; // This is a simplification, you might need to select the position more carefully based on your logic
+                Print($"Current state: stop_loss={position.StopLoss}, take_profit={position.TakeProfit}");
+
+                TradeResult tradeResult;
+                if (updateTakeProfit)
                 {
-                    decision = false,
-                    orderPrice = 0.0,
-                    stopLoss = 0.0,
-                    volume = 0.0
-                };
+                    tradeResult = ModifyPosition(position, decision.stopLoss, decision.takeProfit);
+                }
+                else
+                {
+                    tradeResult = ModifyPosition(position, decision.stopLoss, position.TakeProfit);
+                }
+
+                if (tradeResult.IsSuccessful)
+                {
+                    Print($"Position modified - new stop_loss: {position.StopLoss}, new take_profit: {position.TakeProfit}");
+                }
+                else
+                {
+                    Print($"Error modifying position: {tradeResult.Error}");
+                }
+            }
+            else
+            {
+                Print("No position to modify");
+            }
         }
 
         // UTILITIES
@@ -162,9 +223,6 @@ namespace cAlgo.Robots
             return roundedLots; // How much we can buy for 70% of our balance with the given price
         }
 
-
-        // VALIDATION
-
         private double GetStopLevelPoints()
         {
             // As there's no direct equivalent in cAlgo for SYMBOL_TRADE_STOPS_LEVEL,
@@ -182,6 +240,9 @@ namespace cAlgo.Robots
 
             return stopLevelPoints;
         }
+
+
+        // VALIDATION
 
         private void ValidateEnterDecisionForBuyLimit(ref AiEnterResponse decision)
         {
@@ -270,8 +331,6 @@ namespace cAlgo.Robots
             Print($"After checking with stop_level: stopLoss={decision.stopLoss}, takeProfit={decision.takeProfit}");
             Print("Finish validation");
         }
-
-
 
 
         // STATE MANAGEMENT
