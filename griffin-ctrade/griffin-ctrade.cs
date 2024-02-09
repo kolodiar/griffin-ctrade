@@ -24,27 +24,19 @@ namespace cAlgo.Robots
 
         protected override void OnTick()
         {
-            // Check if it's too early to process data; adjust to cAlgo environment
-            if (lastActionTime == MarketData.GetBars(TimeFrame.Hour).Last(1).OpenTime || Server.Time.Minute < 3)
-            {
-                return;
-            }
-
-            lastActionTime = MarketData.GetBars(TimeFrame.Hour).Last(1).OpenTime;
-            Print(Server.Time);
-
+            // Assuming identifyCurrentState() is adapted and implemented
             State currentState = IdentifyCurrentState();
 
             switch (currentState)
             {
                 case State.NA:
                     Print("State: NA");
-                    var decision = tradeDecisionService.GetBuyDecision(); // Implement this method
-                    Print("Decision: ", decision.decision, " ", decision.volume, " ", decision.orderPrice, " ", decision.stopLoss);
-                    if (decision.decision)
+                    var buyDecision = tradeDecisionService.GetBuyDecision();
+                    Print($"Decision: {buyDecision.decision} {buyDecision.volume} {buyDecision.orderPrice} {buyDecision.stopLoss}");
+                    if (buyDecision.decision)
                     {
                         Print("Create instant buy order");
-                        OpenPositionInstant(decision); // Implement this method
+                        OpenPositionInstant(buyDecision);
                     }
                     else
                     {
@@ -54,43 +46,41 @@ namespace cAlgo.Robots
 
                 case State.PendingBuyOrder:
                     Print("State: PENDING_BUY_ORDER");
-                    // Implement logic to check and cancel the pending order if necessary
+                    // Logic for handling pending buy orders
                     break;
 
                 case State.OpenPosition:
                     Print("State: OPEN_POSITION");
-                    // var sellDecision = GetSellDecision(); // Implement this method
-                    // if (sellDecision.Decision)
-                    // {
-                    //     Print("Prepare position for exit - add take_profit");
-                    //     UpdatePosition(sellDecision); // Implement this method
-                    // }
-                    // else
-                    // {
-                    //     Print("No sell opportunity in this tick");
-                    //     Print("Run update stop_loss");
-                    //     var updateDecision = GetSellUpdateDecision(); // Implement this method
-                    //     UpdatePosition(updateDecision);
-                    // }
+                    var sellDecision = tradeDecisionService.GetSellDecision();
+                    if (sellDecision.decision)
+                    {
+                        Print("Prepare position for exit - add take_profit");
+                        UpdatePosition(sellDecision, true);
+                    }
+                    else
+                    {
+                        Print("No sell opportunity in this tick, checking for stop loss update");
+                        var updateSLDecision = tradeDecisionService.GetSellUpdateDecision();
+                        UpdatePosition(updateSLDecision, false);
+                    }
                     break;
 
                 case State.AddedTakeProfit:
                     Print("State: ADDED_TAKE_PROFIT");
-                    Print("Run update take_profit and stop_loss");
-                    // var updateTPSLDecision = GetSellUpdateDecision(); // Again, implement this method
-                    // if (updateTPSLDecision.Decision)
-                    // {
-                    //     UpdatePosition(updateTPSLDecision);
-                    // }
-                    // else
-                    // {
-                    //     Print("No update in this tick");
-                    // }
+                    var updateTPSLDecision = tradeDecisionService.GetSellUpdateDecision();
+                    if (updateTPSLDecision.decision)
+                    {
+                        UpdatePosition(updateTPSLDecision, true);
+                    }
+                    else
+                    {
+                        Print("No update in this tick");
+                    }
                     break;
 
                 default:
                     Print("Unknown state with ", PendingOrders.Count, " orders and ", Positions.Count, " positions!");
-                    // Stop();
+                    Stop();
                     break;
             }
         }
