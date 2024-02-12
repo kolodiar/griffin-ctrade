@@ -7,8 +7,6 @@ using cAlgo.API.Collections;
 using cAlgo.API.Indicators;
 using cAlgo.API.Internals;
 
-namespace cAlgo.Robots
-{
     [Robot(AccessRights = AccessRights.None)]
     public class GriffinCtrade : Robot
     {
@@ -36,7 +34,8 @@ namespace cAlgo.Robots
                     if (buyDecision.decision)
                     {
                         Print("Create instant buy order");
-                        OpenPositionInstant(buyDecision);
+                        //OpenPositionInstant(buyDecision);
+                        OpenPositionPending(buyDecision);
                     }
                     else
                     {
@@ -46,14 +45,14 @@ namespace cAlgo.Robots
 
                 case State.PendingBuyOrder:
                     Print("State: PENDING_BUY_ORDER");
-                    var resalt = Trade.CancelPendingOrder(PendingOrders.FirstOrDefault()); // we always have at most one order
+                    var result = CancelPendingOrder(PendingOrders.FirstOrDefault()); // we always have at most one order
                     Print(result.IsSuccessful ? "Buy order cancelled due to timeout." : "Failed to cancel buy order.");
                     break;
 
                 case State.OpenPosition:
                     Print("State: OPEN_POSITION");
                     var position = Positions.FirstOrDefault();
-                    var sellDecision = tradeDecisionService.GetSellDecision(position.EntryPrice, position.StopLoss, position.EntryTime.ToString());
+                    var sellDecision = tradeDecisionService.GetSellDecision(position.EntryPrice, position.StopLoss.Value, position.EntryTime.ToString());
                     if (sellDecision.decision)
                     {
                         Print("Prepare position for exit - add take_profit");
@@ -62,13 +61,14 @@ namespace cAlgo.Robots
                     else
                     {
                         Print("No sell opportunity in this tick");
-                        UpdatePosition(updateSLDecision, false);
+                        UpdatePosition(sellDecision, false);
                     }
                     break;
 
                 case State.AddedTakeProfit:
                     Print("State: ADDED_TAKE_PROFIT");
-                    var updateTPSLDecision = tradeDecisionService.GetSellUpdateDecision();
+                    position = Positions.FirstOrDefault(); // defined in previous case block
+                    var updateTPSLDecision = tradeDecisionService.GetSellUpdateDecision(position.EntryPrice, position.TakeProfit.Value, position.StopLoss.Value, position.EntryTime.ToString());
                     if (updateTPSLDecision.decision)
                     {
                         UpdatePosition(updateTPSLDecision, true);
@@ -275,14 +275,14 @@ namespace cAlgo.Robots
             decision.stopLoss = Math.Round(decision.stopLoss, Symbol.Digits);
             Print($"After normalization: orderPrice={decision.orderPrice}, stopLoss={decision.stopLoss}");
 
-            // Ensure the stop loss is not set too close to the current bid price, considering the minimum stop level
-            double stopLevelInPrice = GetStopLevelPoints() * Symbol.PipSize;
-            if (decision.stopLoss > Symbol.Bid - stopLevelInPrice)
-            {
-                decision.stopLoss = Symbol.Bid - stopLevelInPrice; // Adjust based on risk management
-            }
+            // // Ensure the stop loss is not set too close to the current bid price, considering the minimum stop level
+            // double stopLevelInPrice = GetStopLevelPoints() * Symbol.PipSize;
+            // if (decision.stopLoss > Symbol.Bid - stopLevelInPrice)
+            // {
+            //     decision.stopLoss = Symbol.Bid - stopLevelInPrice; // Adjust based on risk management
+            // }
             
-            Print($"After checking with stop_level: orderPrice={decision.orderPrice} (no validation for instant buy), stopLoss={decision.stopLoss}");
+            // Print($"After checking with stop_level: orderPrice={decision.orderPrice} (no validation for instant buy), stopLoss={decision.stopLoss}");
             Print("Finish validation");
         }
 
@@ -306,21 +306,21 @@ namespace cAlgo.Robots
             }
             Print($"After checking if stopLoss is not getting lower: stopLoss={decision.stopLoss}, takeProfit={decision.takeProfit}");
 
-            double currentstopLossLevel = Positions[0].StopLoss ?? 0;
-            double stopLevelInPrice = currentstopLossLevel * Symbol.PipSize;
+            // double currentstopLossLevel = Positions[0].StopLoss ?? 0;
+            // double stopLevelInPrice = currentstopLossLevel * Symbol.PipSize;
 
-            // Assuming decision.takeProfit is a price, not a distance
-            if (decision.takeProfit != 0 && decision.takeProfit < Symbol.Bid + stopLevelInPrice)
-            {
-                decision.takeProfit = Symbol.Bid + stopLevelInPrice; // Adjust as necessary
-            }
+            // // Assuming decision.takeProfit is a price, not a distance
+            // if (decision.takeProfit != 0 && decision.takeProfit < Symbol.Bid + stopLevelInPrice)
+            // {
+            //     decision.takeProfit = Symbol.Bid + stopLevelInPrice; // Adjust as necessary
+            // }
 
-            // Ensure stopLoss respects the minimum distance from the current price
-            if (decision.stopLoss > Symbol.Bid - stopLevelInPrice)
-            {
-                decision.stopLoss = Symbol.Bid - stopLevelInPrice; // Adjust as necessary
-            }
-            Print($"After checking with stop_level: stopLoss={decision.stopLoss}, takeProfit={decision.takeProfit}");
+            // // Ensure stopLoss respects the minimum distance from the current price
+            // if (decision.stopLoss > Symbol.Bid - stopLevelInPrice)
+            // {
+            //     decision.stopLoss = Symbol.Bid - stopLevelInPrice; // Adjust as necessary
+            // }
+            // Print($"After checking with stop_level: stopLoss={decision.stopLoss}, takeProfit={decision.takeProfit}");
             Print("Finish validation");
         }
 
@@ -356,4 +356,3 @@ namespace cAlgo.Robots
             }
         }
     }
-}

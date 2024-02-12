@@ -3,6 +3,8 @@ using System.Text;
 using System.Net.Http;
 using System.Collections.Generic;
 using System.Text.Json;
+using cAlgo.API.Internals;
+
 
 public class TradeDecisionService
 {
@@ -19,6 +21,7 @@ public class TradeDecisionService
 
     public TradeDecisionService()
     {
+        
         // Assuming initialization with specific values
         client.BaseAddress = new Uri("http://localhost:8001");
         
@@ -41,8 +44,10 @@ public class TradeDecisionService
         string jsonRequestData = JsonSerializer.Serialize(data);
         var content = new StringContent(jsonRequestData, Encoding.UTF8, "application/json");
 
-        var response = client.PostAsync(buyUrl, content).Result.Content.ReadAsStringAsync().Result;
+        var response = "1,0.01,0.826,0.8"; //client.PostAsync(buyUrl, content).Result.Content.ReadAsStringAsync().Result;
         Console.WriteLine($"AI buy decision response: {response}");
+        Algo.Print($"AI buy decision response: {response} (robot print)");
+
 
         // Splitting response and parsing
         var responseParams = response.Split(',');
