@@ -19,8 +19,11 @@ public class TradeDecisionService
     public string ohlcSymbol { get; set; }
     public string obdSymbol { get; set; }
 
-    public TradeDecisionService()
+    public cAlgo.API.Robot robot;
+
+    public TradeDecisionService(cAlgo.API.Robot robot)
     {
+        robot = robot;
         
         // Assuming initialization with specific values
         client.BaseAddress = new Uri("http://localhost:8001");
@@ -46,7 +49,7 @@ public class TradeDecisionService
 
         var response = "1,0.01,0.826,0.8"; //client.PostAsync(buyUrl, content).Result.Content.ReadAsStringAsync().Result;
         Console.WriteLine($"AI buy decision response: {response}");
-        Algo.Print($"AI buy decision response: {response} (robot print)");
+        robot.Print($"AI buy decision response: {response} (robot print)");
 
 
         // Splitting response and parsing

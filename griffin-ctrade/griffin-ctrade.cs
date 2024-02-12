@@ -11,8 +11,14 @@ using cAlgo.API.Internals;
     public class GriffinCtrade : Robot
     {
 
+
         private DateTime lastActionTime = DateTime.MinValue;
-        private TradeDecisionService tradeDecisionService = new TradeDecisionService();
+        private TradeDecisionService tradeDecisionService;
+
+        public GriffinCtrade() : base()
+        {
+            tradeDecisionService = new TradeDecisionService(this);
+        }
 
         protected override void OnStart()
         {
