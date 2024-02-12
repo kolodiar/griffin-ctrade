@@ -23,7 +23,7 @@ public class TradeDecisionService
 
     public TradeDecisionService(cAlgo.API.Robot robot)
     {
-        robot = robot;
+        this.robot = robot;
         
         // Assuming initialization with specific values
         client.BaseAddress = new Uri("http://localhost:8001");
