@@ -46,12 +46,14 @@ namespace cAlgo.Robots
 
                 case State.PendingBuyOrder:
                     Print("State: PENDING_BUY_ORDER");
-                    // Logic for handling pending buy orders
+                    var resalt = Trade.CancelPendingOrder(PendingOrders.FirstOrDefault()); // we always have at most one order
+                    Print(result.IsSuccessful ? "Buy order cancelled due to timeout." : "Failed to cancel buy order.");
                     break;
 
                 case State.OpenPosition:
                     Print("State: OPEN_POSITION");
-                    var sellDecision = tradeDecisionService.GetSellDecision();
+                    var position = Positions.FirstOrDefault();
+                    var sellDecision = tradeDecisionService.GetSellDecision(position.EntryPrice, position.StopLoss, position.EntryTime.ToString());
                     if (sellDecision.decision)
                     {
                         Print("Prepare position for exit - add take_profit");
@@ -59,8 +61,7 @@ namespace cAlgo.Robots
                     }
                     else
                     {
-                        Print("No sell opportunity in this tick, checking for stop loss update");
-                        var updateSLDecision = tradeDecisionService.GetSellUpdateDecision();
+                        Print("No sell opportunity in this tick");
                         UpdatePosition(updateSLDecision, false);
                     }
                     break;
@@ -213,23 +214,23 @@ namespace cAlgo.Robots
             return roundedLots; // How much we can buy for 70% of our balance with the given price
         }
 
-        private double GetStopLevelPoints()
-        {
-            // As there's no direct equivalent in cAlgo for SYMBOL_TRADE_STOPS_LEVEL,
-            // you might use the current spread as a proxy or a predefined value based on your broker's requirements.
-            // This example demonstrates using the current spread as an approximation.
+        // private double GetStopLevelPoints()
+        // {
+        //     // As there's no direct equivalent in cAlgo for SYMBOL_TRADE_STOPS_LEVEL,
+        //     // you might use the current spread as a proxy or a predefined value based on your broker's requirements.
+        //     // This example demonstrates using the current spread as an approximation.
             
-            // Note: The spread is in terms of the symbol's price units, not points.
-            // If you need the value in points, you'd adjust based on the symbol's pip size.
-            double spreadInPriceUnits = Symbol.Spread;
-            double spreadInPoints = spreadInPriceUnits / Symbol.PipSize; // Convert spread from price units to points
+        //     // Note: The spread is in terms of the symbol's price units, not points.
+        //     // If you need the value in points, you'd adjust based on the symbol's pip size.
+        //     double spreadInPriceUnits = Symbol.Spread;
+        //     double spreadInPoints = spreadInPriceUnits / Symbol.PipSize; // Convert spread from price units to points
             
-            // You might want to add a buffer to the spread to ensure compliance with minimum stop levels during volatile periods.
-            double buffer = 5; // Example buffer in points TODO
-            double stopLevelPoints = spreadInPoints + buffer;
+        //     // You might want to add a buffer to the spread to ensure compliance with minimum stop levels during volatile periods.
+        //     double buffer = 5; // Example buffer in points TODO
+        //     double stopLevelPoints = spreadInPoints + buffer;
 
-            return stopLevelPoints;
-        }
+        //     return stopLevelPoints;
+        // }
 
 
         // VALIDATION
@@ -244,22 +245,23 @@ namespace cAlgo.Robots
             decision.stopLoss = Math.Round(decision.stopLoss, Symbol.Digits);
             Print($"After normalization: orderPrice={decision.orderPrice}, stopLoss={decision.stopLoss}");
 
-            // Ensure the order price is not too close to the current ask price, considering the minimum stop level
-            double stopLevelInPrice = GetStopLevelPoints() * Symbol.PipSize;
-            var askPrice = Symbol.Ask;
-            if (decision.orderPrice > askPrice- stopLevelInPrice)
-            {
-                decision.orderPrice = askPrice - stopLevelInPrice;
-            }
+            // no stop level in CTrader
+            // // Ensure the order price is not too close to the current ask price, considering the minimum stop level
+            // double stopLevelInPrice = GetStopLevelPoints() * Symbol.PipSize;
+            // var askPrice = Symbol.Ask;
+            // if (decision.orderPrice > askPrice- stopLevelInPrice)
+            // {
+            //     decision.orderPrice = askPrice - stopLevelInPrice;
+            // }
 
-            // For a buy limit order, the stop loss must be below the order price
-            // Ensure stop loss is not set too close to the order price, considering the minimum stop level
-            if (decision.stopLoss >= decision.orderPrice - stopLevelInPrice)
-            {
-                decision.stopLoss = decision.orderPrice - stopLevelInPrice; // Adjust this logic based on your risk management
-            }
+            // // For a buy limit order, the stop loss must be below the order price
+            // // Ensure stop loss is not set too close to the order price, considering the minimum stop level
+            // if (decision.stopLoss >= decision.orderPrice - stopLevelInPrice)
+            // {
+            //     decision.stopLoss = decision.orderPrice - stopLevelInPrice; // Adjust this logic based on your risk management
+            // }
             
-            Print($"After checking with stop_level: orderPrice={decision.orderPrice}, stopLoss={decision.stopLoss}");
+            // Print($"After checking with stop_level: orderPrice={decision.orderPrice}, stopLoss={decision.stopLoss}");
             Print("Finish validation");
         }
 
