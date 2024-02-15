@@ -48,7 +48,7 @@ public class TradeDecisionService
         string jsonRequestData = JsonSerializer.Serialize(data);
         var content = new StringContent(jsonRequestData, Encoding.UTF8, "application/json");
 
-        var response = "1,0.01,0.86,0.85"; //client.PostAsync(buyUrl, content).Result.Content.ReadAsStringAsync().Result; 
+        var response = "1,0.01,0.0855,0.0845"; //client.PostAsync(buyUrl, content).Result.Content.ReadAsStringAsync().Result; 
         Console.WriteLine($"AI buy decision response: {response}");
         robot.Print($"AI buy decision response: {response} (robot print)");
         
