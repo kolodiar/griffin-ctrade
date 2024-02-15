@@ -3,6 +3,7 @@ using System.Text;
 using System.Net.Http;
 using System.Collections.Generic;
 using System.Text.Json;
+using System.Globalization;
 using cAlgo.API.Internals;
 
 
@@ -47,17 +48,18 @@ public class TradeDecisionService
         string jsonRequestData = JsonSerializer.Serialize(data);
         var content = new StringContent(jsonRequestData, Encoding.UTF8, "application/json");
 
-        var response = "1,0.01,0.826,0.8"; //client.PostAsync(buyUrl, content).Result.Content.ReadAsStringAsync().Result;
+        var response = "1,0.01,0.86,0.85"; //client.PostAsync(buyUrl, content).Result.Content.ReadAsStringAsync().Result; 
         Console.WriteLine($"AI buy decision response: {response}");
         robot.Print($"AI buy decision response: {response} (robot print)");
+        
 
 
         // Splitting response and parsing
         var responseParams = response.Split(',');
         bool buyDecision = responseParams[0] == "1";
-        double volume = double.Parse(responseParams[1]);
-        double buyPrice = double.Parse(responseParams[2]); // Assuming this conversion is necessary
-        double stopLoss = double.Parse(responseParams[3]);
+        double volume = double.Parse(responseParams[1], CultureInfo.InvariantCulture);
+        double buyPrice = double.Parse(responseParams[2], CultureInfo.InvariantCulture); // Assuming this conversion is necessary
+        double stopLoss = double.Parse(responseParams[3], CultureInfo.InvariantCulture);
 
         return new AiEnterResponse
         {

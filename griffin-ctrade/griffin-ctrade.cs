@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
+using System.Globalization;
 using cAlgo.API;
 using cAlgo.API.Collections;
 using cAlgo.API.Indicators;
@@ -39,8 +40,9 @@ using cAlgo.API.Internals;
                     Print($"Decision: {buyDecision.decision} {buyDecision.volume} {buyDecision.orderPrice} {buyDecision.stopLoss}");
                     if (buyDecision.decision)
                     {
-                        Print("Create instant buy order");
+                        //Print("Create instant buy order");
                         //OpenPositionInstant(buyDecision);
+                        Print("Create pending buy order");
                         OpenPositionPending(buyDecision);
                     }
                     else
@@ -210,7 +212,7 @@ using cAlgo.API.Internals;
         {
             Print("Balance before: ", Account.Balance);
             double unitsToBuy = Account.Balance * 0.7 / orderPrice;
-            double standardLots = unitsToBuy / Symbol.QuantityToVolumeInUnits(1); // Convert 1 unit of quantity to volume in lots for the symbol
+            double standardLots = unitsToBuy;// / Symbol.QuantityToVolumeInUnits(1); // Convert 1 unit of quantity to volume in lots for the symbol
             
             // Calculate the volume in steps that are valid for the symbol
             double volumeStep = Symbol.VolumeStep;
@@ -346,12 +348,12 @@ using cAlgo.API.Internals;
                 return State.PendingBuyOrder;
             }
             // Check for no orders and a single open position without a take profit
-            else if (PendingOrders.Count == 0 && Positions.Count == 1 && Positions[0].TakeProfit == 0)
+            else if (PendingOrders.Count == 0 && Positions.Count == 1 && Positions[0].TakeProfit != null  && Positions[0].TakeProfit == 0)
             {
                 return State.OpenPosition;
             }
             // Check for no orders and a single open position with a take profit
-            else if (PendingOrders.Count == 0 && Positions.Count == 1 && Positions[0].TakeProfit != 0)
+            else if (PendingOrders.Count == 0 && Positions.Count == 1 && Positions[0].TakeProfit != null && Positions[0].TakeProfit != 0)
             {
                 return State.AddedTakeProfit;
             }
