@@ -48,7 +48,7 @@ public class TradeDecisionService
         string jsonRequestData = JsonSerializer.Serialize(data);
         var content = new StringContent(jsonRequestData, Encoding.UTF8, "application/json");
 
-        var response = "1,0.01,0.0855,0.0845"; //client.PostAsync(buyUrl, content).Result.Content.ReadAsStringAsync().Result; 
+        var response = client.PostAsync(buyUrl, content).Result.Content.ReadAsStringAsync().Result;  // "1,0.01,0.0855,0.0845";
         Console.WriteLine($"AI buy decision response: {response}");
         robot.Print($"AI buy decision response: {response} (robot print)");
         
@@ -57,9 +57,9 @@ public class TradeDecisionService
         // Splitting response and parsing
         var responseParams = response.Split(',');
         bool buyDecision = responseParams[0] == "1";
-        double volume = double.Parse(responseParams[1], CultureInfo.InvariantCulture);
-        double buyPrice = double.Parse(responseParams[2], CultureInfo.InvariantCulture); // Assuming this conversion is necessary
-        double stopLoss = double.Parse(responseParams[3], CultureInfo.InvariantCulture);
+        double volume = double.TryParse(responseParams[1], NumberStyles.Any, CultureInfo.InvariantCulture, out double parsedValue) ? parsedValue : double.NaN;
+        double buyPrice = double.TryParse(responseParams[2], NumberStyles.Any, CultureInfo.InvariantCulture, out parsedValue) ? parsedValue : double.NaN;  // robot.Symbol.Ask * 0.999; 
+        double stopLoss = double.TryParse(responseParams[3], NumberStyles.Any, CultureInfo.InvariantCulture, out parsedValue) ? parsedValue : double.NaN; // robot.Symbol.Bid * 0.99;
 
         return new AiEnterResponse
         {
@@ -88,14 +88,14 @@ public class TradeDecisionService
         var content = new StringContent(jsonRequestData, Encoding.UTF8, "application/json");
 
         // Sending a synchronous request, but consider using async/await pattern in real applications
-        var response = client.PostAsync(sellUrl, content).Result.Content.ReadAsStringAsync().Result;
+        var response = client.PostAsync(sellUrl, content).Result.Content.ReadAsStringAsync().Result; // "1,0.0841,0.088"; 
         Console.WriteLine($"AI sell decision response: {response}");
 
         // Splitting response and parsing
         var responseParams = response.Split(',');
         bool sellDecision = responseParams[0] == "1";
-        double newStopLoss = double.Parse(responseParams[1]);
-        double newTakeProfit = double.Parse(responseParams[2]);
+        double newStopLoss = double.TryParse(responseParams[1], NumberStyles.Any, CultureInfo.InvariantCulture, out double parsedValue) ? parsedValue : double.NaN;;
+        double newTakeProfit = double.TryParse(responseParams[2], NumberStyles.Any, CultureInfo.InvariantCulture, out parsedValue) ? parsedValue : double.NaN;;
 
         return new AiExitResponse
         {
@@ -124,14 +124,14 @@ public class TradeDecisionService
         var content = new StringContent(jsonRequestData, Encoding.UTF8, "application/json");
 
         // Sending a synchronous request, but consider using async/await pattern in real applications
-        var responseString = client.PostAsync(sellUpdateUrl, content).Result.Content.ReadAsStringAsync().Result;
+        var responseString = client.PostAsync(sellUpdateUrl, content).Result.Content.ReadAsStringAsync().Result; // "1,0.085,0.0872"; 
         Console.WriteLine($"AI sell decision response: {responseString}");
 
         // Splitting response and parsing
         var responseParams = responseString.Split(',');
         bool sellDecision = responseParams[0] == "1";
-        double newStopLoss = double.Parse(responseParams[1]);
-        double newTakeProfit = double.Parse(responseParams[2]);
+        double newStopLoss = double.TryParse(responseParams[1], NumberStyles.Any, CultureInfo.InvariantCulture, out double parsedValue) ? parsedValue : double.NaN;
+        double newTakeProfit = double.TryParse(responseParams[2], NumberStyles.Any, CultureInfo.InvariantCulture, out parsedValue) ? parsedValue : double.NaN;
 
         return new AiExitResponse
         {

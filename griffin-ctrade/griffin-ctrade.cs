@@ -8,12 +8,10 @@ using cAlgo.API.Collections;
 using cAlgo.API.Indicators;
 using cAlgo.API.Internals;
 
-[Robot(AccessRights = AccessRights.None)]
+[Robot(AccessRights = AccessRights.None)] // FullAccess - if errors with creating orders
 public class GriffinCtrade : Robot
 {
-
-
-    private DateTime lastActionTime = DateTime.MinValue;
+    private DateTime lastActionTime = DateTime.Now.AddHours(-1);
     private TradeDecisionService tradeDecisionService;
 
     public GriffinCtrade() : base()
@@ -29,7 +27,14 @@ public class GriffinCtrade : Robot
 
     protected override void OnTick()
     {
-        // Assuming identifyCurrentState() is adapted and implemented
+
+        DateTime currentTime = Server.Time; // Get the current time
+        // if already executed in current hour or it is too early for indicators and orderbook - wait and come back later
+        if (lastActionTime.Hour == currentTime.Hour || currentTime.Minute < 3) {
+            return;
+        }
+        lastActionTime = currentTime; // Update the last execution hour
+
         State currentState = IdentifyCurrentState();
 
         switch (currentState)
@@ -152,21 +157,25 @@ public class GriffinCtrade : Robot
         ValidateExitDecision(ref decision); // Ensure this adjusts the decision object as needed
         Print("Current Ask price: ", Symbol.Ask);
         Print($"Updating position: stop_loss={decision.stopLoss}, take_profit={(updateTakeProfit ? decision.takeProfit.ToString() : "Unchanged")}");
+   
 
         // Assuming you have identified the position you want to modify, for example, the first or only position
         if (Positions.Count > 0)
         {
             var position = Positions[0]; // This is a simplification, you might need to select the position more carefully based on your logic
+            
+
             Print($"Current state: stop_loss={position.StopLoss}, take_profit={position.TakeProfit}");
 
             TradeResult tradeResult;
             if (updateTakeProfit)
             {
+                
                 tradeResult = ModifyPosition(position, decision.stopLoss, decision.takeProfit);
             }
             else
             {
-                tradeResult = ModifyPosition(position, decision.stopLoss, position.TakeProfit);
+                tradeResult = ModifyPosition(position, decision.stopLoss, position.TakeProfit); // keep current takeProfit
             }
 
             if (tradeResult.IsSuccessful)
@@ -189,8 +198,9 @@ public class GriffinCtrade : Robot
     private double CalculateVolume(double orderPrice)
     {
         Print("Balance before: ", Account.Balance);
-        // How much we can buy for 70% of our balance with the given price
-        double unitsToBuy = Account.Balance * 0.7 / orderPrice;
+        double percentageOfBalanceToUse = 0.0007; // 0.0007 for testing, 0.7 for real
+        // How much we can buy for specified percentage of our balance with the given price
+        double unitsToBuy = Account.Balance * percentageOfBalanceToUse / orderPrice;
         Print("unitsToBuy: ", unitsToBuy);
         // double standardLots = unitsToBuy / Symbol.QuantityToVolumeInUnits(1); // Convert 1 unit of quantity to volume in lots for the symbol
         // Print("standardLots: ", standardLots);
