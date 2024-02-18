@@ -80,8 +80,9 @@ public class TradeDecisionService
             { "obd_symbol", obdSymbol },
             { "bought_price", boughtPrice.ToString() },
             { "stop_loss", stopLoss.ToString() },
-            { "timestamp", timestamp }
+            { "timestamp", timestamp.ToString() }
         };
+
 
         // Convert dictionary to JSON string
         string jsonRequestData = JsonSerializer.Serialize(data);

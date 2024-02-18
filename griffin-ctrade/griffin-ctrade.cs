@@ -3,15 +3,17 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Globalization;
+using System.IO;
+using System.Threading;
 using cAlgo.API;
 using cAlgo.API.Collections;
 using cAlgo.API.Indicators;
 using cAlgo.API.Internals;
 
-[Robot(AccessRights = AccessRights.None)] // FullAccess - if errors with creating orders
+[Robot(AccessRights = AccessRights.None)] // None - default, FullAccess - if errors with creating orders
 public class GriffinCtrade : Robot
 {
-    private DateTime lastActionTime = DateTime.Now.AddHours(-1);
+    private DateTime lastActionTime = DateTime.Now.AddHours(-2); // move time back so the first iteration is successfull
     private TradeDecisionService tradeDecisionService;
 
     public GriffinCtrade() : base()
@@ -45,10 +47,10 @@ public class GriffinCtrade : Robot
                 Print($"Decision: {buyDecision.decision} {buyDecision.volume} {buyDecision.orderPrice} {buyDecision.stopLoss}");
                 if (buyDecision.decision)
                 {
-                    //Print("Create instant buy order");
-                    //OpenPositionInstant(buyDecision);
-                    Print("Create pending buy order");
-                    OpenPositionPending(buyDecision);
+                    Print("Create instant buy order");
+                    OpenPositionInstant(buyDecision);
+                    //Print("Create pending buy order");
+                    //OpenPositionPending(buyDecision);
                 }
                 else
                 {
@@ -65,11 +67,14 @@ public class GriffinCtrade : Robot
             case State.OpenPosition:
                 Print("State: OPEN_POSITION");
                 var position = Positions.FirstOrDefault();
+                Print("Position found");
+
                 var sellDecision = tradeDecisionService.GetSellDecision(position.EntryPrice, position.StopLoss.Value, position.EntryTime.ToString());
                 if (sellDecision.decision)
                 {
-                    Print("Prepare position for exit - add take_profit");
-                    UpdatePosition(sellDecision, true);
+                    ExitPositionInstant();
+                    // Print("Prepare position for exit - add take_profit");
+                    // UpdatePosition(sellDecision, true);
                 }
                 else
                 {
@@ -81,10 +86,10 @@ public class GriffinCtrade : Robot
             case State.AddedTakeProfit:
                 Print("State: ADDED_TAKE_PROFIT");
                 position = Positions.FirstOrDefault(); // defined in previous case block
-                var updateTPSLDecision = tradeDecisionService.GetSellUpdateDecision(position.EntryPrice, position.TakeProfit.Value, position.StopLoss.Value, position.EntryTime.ToString());
-                if (updateTPSLDecision.decision)
+                var updateSellDecision = tradeDecisionService.GetSellUpdateDecision(position.EntryPrice, position.TakeProfit.Value, position.StopLoss.Value, position.EntryTime.ToString());
+                if (updateSellDecision.decision)
                 {
-                    UpdatePosition(updateTPSLDecision, true);
+                    UpdatePosition(updateSellDecision, true);
                 }
                 else
                 {
@@ -113,8 +118,10 @@ public class GriffinCtrade : Robot
         Print("Current Ask price: ", Symbol.Ask);
         Print($"Creating instant buy order: volume={volume}, order_price=0.0 (actual Ask will be used), stop_loss={decision.stopLoss}");
 
+        var StopLossInPips = (Symbol.Ask - decision.stopLoss) / Symbol.PipSize;
+        Print("StopLoss_pips: ", StopLossInPips);
         // Execute a market order to buy immediately at the current ask price
-        var tradeResult = ExecuteMarketOrder(TradeType.Buy, SymbolName, volume, "Instant buy order on current Ask price", null, decision.stopLoss);
+        var tradeResult = ExecuteMarketOrder(TradeType.Buy, SymbolName, volume, "Instant buy order on current Ask price", StopLossInPips, null);
 
         if (tradeResult.IsSuccessful)
         {
@@ -133,7 +140,7 @@ public class GriffinCtrade : Robot
         double volume = CalculateVolume(decision.orderPrice); // Ensure this calculates based on the decision's order price
     
         var StopLossInPips = (decision.orderPrice - decision.stopLoss) / Symbol.PipSize;
-        Print("StopLoss_pips: ", (decision.orderPrice - decision.stopLoss) / Symbol.PipSize);
+        Print("StopLoss_pips: ", StopLossInPips);
         Print($"Creating pending buy order: volume={volume}, order_price={decision.orderPrice}, stop_loss={StopLossInPips}");
 
         // Place a Buy Limit order
@@ -151,6 +158,11 @@ public class GriffinCtrade : Robot
         }
     }
 
+    private void ExitPositionInstant()
+    {
+        Print("Closing position instant");
+        ClosePosition(Positions[0]);
+    }
 
     private void UpdatePosition(AiExitResponse decision, bool updateTakeProfit = true)
     {
@@ -170,7 +182,6 @@ public class GriffinCtrade : Robot
             TradeResult tradeResult;
             if (updateTakeProfit)
             {
-                
                 tradeResult = ModifyPosition(position, decision.stopLoss, decision.takeProfit);
             }
             else
@@ -198,10 +209,10 @@ public class GriffinCtrade : Robot
     private double CalculateVolume(double orderPrice)
     {
         Print("Balance before: ", Account.Balance);
-        double percentageOfBalanceToUse = 0.0007; // 0.0007 for testing, 0.7 for real
+        double percentageOfBalanceToUse = 0.007; // 0.007 for testing, 0.7 for real
         // How much we can buy for specified percentage of our balance with the given price
         double unitsToBuy = Account.Balance * percentageOfBalanceToUse / orderPrice;
-        Print("unitsToBuy: ", unitsToBuy);
+        //Print("unitsToBuy: ", unitsToBuy);
         // double standardLots = unitsToBuy / Symbol.QuantityToVolumeInUnits(1); // Convert 1 unit of quantity to volume in lots for the symbol
         // Print("standardLots: ", standardLots);
 
@@ -220,36 +231,74 @@ public class GriffinCtrade : Robot
     private void ValidateEnterDecisionForBuyLimit(ref AiEnterResponse decision)
     {
         Print("Run decision validation (buyLimit):");
-        Print($"Input: orderPrice={decision.orderPrice}, stopLoss={decision.stopLoss}");
+        //Print($"Input: orderPrice={decision.orderPrice}, stopLoss={decision.stopLoss}");
 
         // Normalize prices using the Symbol's pip size
         decision.orderPrice = Math.Round(decision.orderPrice, Symbol.Digits);
         decision.stopLoss = Math.Round(decision.stopLoss, Symbol.Digits);
-        Print($"After normalization: orderPrice={decision.orderPrice}, stopLoss={decision.stopLoss}");
+        //Print($"After normalization: orderPrice={decision.orderPrice}, stopLoss={decision.stopLoss}");
+
+        if(decision.stopLoss > Symbol.Bid) {
+            Print($"ERROR: Stop loss {decision.stopLoss} higher then bid price! Invalid input");
+            Thread.Sleep(2000);
+            // for testing purposes, move stoploss just to resume testing
+            decision.stopLoss = Symbol.Bid * 0.99;
+            Print("New stop loss for testing purposes: ", decision.stopLoss);
+            //throw new InvalidDataException("Stop loss higher then bid price! Invalid input");
+        }
+
         Print("Finish validation");
     }
 
     private void ValidateEnterDecisionForInstantBuy(ref AiEnterResponse decision)
     {
         Print("Run decision validation (buy instant):");
-        Print($"Input: orderPrice={decision.orderPrice}, stopLoss={decision.stopLoss}");
+        //Print($"Input: orderPrice={decision.orderPrice}, stopLoss={decision.stopLoss}");
 
         // Normalize prices using the Symbol's pip size
         decision.orderPrice = Math.Round(decision.orderPrice, Symbol.Digits);
         decision.stopLoss = Math.Round(decision.stopLoss, Symbol.Digits);
-        Print($"After normalization: orderPrice={decision.orderPrice}, stopLoss={decision.stopLoss}");
+        //Print($"After normalization: orderPrice={decision.orderPrice}, stopLoss={decision.stopLoss}");
+        if(decision.stopLoss > Symbol.Bid) {
+            Print($"ERROR: Stop loss {decision.stopLoss} higher then bid price! Invalid input");
+            Thread.Sleep(2000);
+            // for testing purposes, move stoploss just to resume testing
+            decision.stopLoss = Symbol.Bid * 0.99;
+            Print("New stop loss for testing purposes: ", decision.stopLoss);
+            //throw new InvalidDataException("Stop loss higher then bid price! Invalid input");
+        }
+
         Print("Finish validation");
     }
 
     private void ValidateExitDecision(ref AiExitResponse decision)
     {
         Print("Run decision validation: (exit/update)");
-        Print($"Input: stopLoss={decision.stopLoss}, takeProfit={decision.takeProfit}");
+        //Print($"Input: stopLoss={decision.stopLoss}, takeProfit={decision.takeProfit}");
+
 
         // Normalize prices using the Symbol's pip size
         decision.takeProfit = Math.Round(decision.takeProfit, Symbol.Digits);
         decision.stopLoss = Math.Round(decision.stopLoss, Symbol.Digits);
-        Print($"After normalization: stopLoss={decision.stopLoss}, takeProfit={decision.takeProfit}");
+        //Print($"After normalization: stopLoss={decision.stopLoss}, takeProfit={decision.takeProfit}");
+
+        if(decision.stopLoss > Symbol.Bid) {
+            Print($"ERROR: Stop loss {decision.stopLoss} higher then bid price! Invalid input");
+
+            // for testing purposes, move stoploss just to resume testing
+            decision.stopLoss = Symbol.Bid * 0.99;
+            Print("New stop loss for testing purposes: ", decision.stopLoss);
+            //throw new InvalidDataException("Stop loss higher then bid price! Invalid input");
+        }
+
+        if(decision.takeProfit < Symbol.Bid) {
+            Print($"ERROR: Take profit {decision.takeProfit} lower then bid price! Invalid input");
+
+            // for testing purposes, move takeProfit just to resume testing
+            decision.takeProfit = Symbol.Bid * 1.001;
+            Print("New take profit for testing purposes: ", decision.takeProfit);
+            //throw new InvalidDataException("Take profit lower then bid price! Invalid input");
+        }
 
         // Assuming you have access to the current position's stopLoss
         var currentPositionSL = Positions[0].StopLoss ?? 0; // Replace currentPosition with your actual position object
