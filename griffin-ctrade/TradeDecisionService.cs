@@ -11,7 +11,7 @@ public class TradeDecisionService
 {
     private string buyUrl = "/api/v1/mt/buy";
     private string sellUrl = "/api/v1/mt/sell";
-    private string sellUpdateUrl = "/api/v1/mt/sell_update";
+    private string sellUpdateUrl = "/api/v1/mt/sell-update";
 
     private HttpClient client = new HttpClient();
 
@@ -35,14 +35,17 @@ public class TradeDecisionService
         obdSymbol = $"{mainCurrency}{secondCurrency}T";
     }
 
-    public AiEnterResponse GetBuyDecision()
+    public AiEnterResponse GetBuyDecision(double ask, double bid)
     {
         var data = new Dictionary<string, string>
         {
             { "main_currency", mainCurrency },
             { "second_currency", secondCurrency },
             { "ohlc_symbol", ohlcSymbol },
-            { "obd_symbol", obdSymbol }
+            { "obd_symbol", obdSymbol },
+            { "current_ask_price", ask.ToString() },
+            { "current_bid_price", bid.ToString() }
+
         };
         // Convert dictionary to JSON string
         string jsonRequestData = JsonSerializer.Serialize(data);
@@ -70,7 +73,7 @@ public class TradeDecisionService
         };
     }
 
-    public AiExitResponse GetSellDecision(double boughtPrice, double stopLoss, string timestamp)
+    public AiExitResponse GetSellDecision(double ask, double bid, double boughtPrice, double stopLoss, string timestamp)
     {
         var data = new Dictionary<string, string>
         {
@@ -78,6 +81,8 @@ public class TradeDecisionService
             { "second_currency", secondCurrency },
             { "ohlc_symbol", ohlcSymbol },
             { "obd_symbol", obdSymbol },
+            { "current_ask_price", ask.ToString() },
+            { "current_bid_price", bid.ToString() },
             { "bought_price", boughtPrice.ToString() },
             { "stop_loss", stopLoss.ToString() },
             { "timestamp", timestamp.ToString() }
@@ -106,7 +111,7 @@ public class TradeDecisionService
         };
     }
 
-    public AiExitResponse GetSellUpdateDecision(double boughtPrice, double takeProfit, double stopLoss, string timestamp)
+    public AiExitResponse GetSellUpdateDecision(double ask, double bid, double boughtPrice, double takeProfit, double stopLoss, string timestamp)
     {
         var data = new Dictionary<string, string>
         {
@@ -114,6 +119,8 @@ public class TradeDecisionService
             { "second_currency", secondCurrency },
             { "ohlc_symbol", ohlcSymbol },
             { "obd_symbol", obdSymbol },
+            { "current_ask_price", ask.ToString() },
+            { "current_bid_price", bid.ToString() },
             { "bought_price", boughtPrice.ToString() },
             { "take_profit", takeProfit.ToString() },
             { "stop_loss", stopLoss.ToString() },

@@ -43,7 +43,7 @@ public class GriffinCtrade : Robot
         {
             case State.NA:
                 Print("State: NA");
-                var buyDecision = tradeDecisionService.GetBuyDecision();
+                var buyDecision = tradeDecisionService.GetBuyDecision(Symbol.Ask, Symbol.Bid);
                 Print($"Decision: {buyDecision.decision} {buyDecision.volume} {buyDecision.orderPrice} {buyDecision.stopLoss}");
                 if (buyDecision.decision)
                 {
@@ -60,8 +60,8 @@ public class GriffinCtrade : Robot
 
             case State.PendingBuyOrder:
                 Print("State: PENDING_BUY_ORDER");
-                //var result = CancelPendingOrder(PendingOrders.FirstOrDefault()); // we always have at most one order
-                //Print(result.IsSuccessful ? "Buy order cancelled due to timeout." : "Failed to cancel buy order.");
+                var result = CancelPendingOrder(PendingOrders.FirstOrDefault()); // we always have at most one order
+                Print(result.IsSuccessful ? "Buy order cancelled due to timeout." : "Failed to cancel buy order.");
                 break;
 
             case State.OpenPosition:
@@ -69,11 +69,12 @@ public class GriffinCtrade : Robot
                 var position = Positions.FirstOrDefault();
                 Print("Position found");
 
-                var sellDecision = tradeDecisionService.GetSellDecision(position.EntryPrice, position.StopLoss.Value, position.EntryTime.ToString());
+                var sellDecision = tradeDecisionService.GetSellDecision(Symbol.Ask, Symbol.Bid, position.EntryPrice, 
+                                                                        position.StopLoss.Value, position.EntryTime.ToString());
                 if (sellDecision.decision)
                 {
                     ExitPositionInstant();
-                    // Print("Prepare position for exit - add take_profit");
+                    // Print("Prepare position for exit - add take_profit and update stop_loss");
                     // UpdatePosition(sellDecision, true);
                 }
                 else
@@ -84,9 +85,11 @@ public class GriffinCtrade : Robot
                 break;
 
             case State.AddedTakeProfit:
-                Print("State: ADDED_TAKE_PROFIT");
+                Print("State: ADDED_TAKE_PROFIT (disabled)");
                 position = Positions.FirstOrDefault(); // defined in previous case block
-                var updateSellDecision = tradeDecisionService.GetSellUpdateDecision(position.EntryPrice, position.TakeProfit.Value, position.StopLoss.Value, position.EntryTime.ToString());
+                var updateSellDecision = tradeDecisionService.GetSellUpdateDecision(Symbol.Ask, Symbol.Bid, position.EntryPrice, 
+                                                                                    position.TakeProfit.Value, position.StopLoss.Value, 
+                                                                                    position.EntryTime.ToString());
                 if (updateSellDecision.decision)
                 {
                     UpdatePosition(updateSellDecision, true);
@@ -121,7 +124,7 @@ public class GriffinCtrade : Robot
         var StopLossInPips = (Symbol.Ask - decision.stopLoss) / Symbol.PipSize;
         Print("StopLoss_pips: ", StopLossInPips);
         // Execute a market order to buy immediately at the current ask price
-        var tradeResult = ExecuteMarketOrder(TradeType.Buy, SymbolName, volume, "Instant buy order on current Ask price", StopLossInPips, null);
+        var tradeResult = ExecuteMarketOrder(TradeType.Buy, SymbolName, volume, "Instant buy order on current Ask price", StopLossInPips, 5); // takeprofit - the last parameter, only for testing 
 
         if (tradeResult.IsSuccessful)
         {
@@ -259,11 +262,20 @@ public class GriffinCtrade : Robot
         decision.orderPrice = Math.Round(decision.orderPrice, Symbol.Digits);
         decision.stopLoss = Math.Round(decision.stopLoss, Symbol.Digits);
         //Print($"After normalization: orderPrice={decision.orderPrice}, stopLoss={decision.stopLoss}");
+
+        if((decision.stopLoss - Symbol.Bid) / Symbol.PipSize < 5) {
+            Print($"WARN: Stop loss {decision.stopLoss} to close to bid price! Invalid input");
+            Thread.Sleep(2000);
+            // for testing purposes, move stoploss just to resume testing
+            decision.stopLoss = Symbol.Bid - 10 * Symbol.PipSize;
+            Print("New stop loss for testing purposes: ", decision.stopLoss);
+            //throw new InvalidDataException("Stop loss higher then bid price! Invalid input");
+        }
         if(decision.stopLoss > Symbol.Bid) {
             Print($"ERROR: Stop loss {decision.stopLoss} higher then bid price! Invalid input");
             Thread.Sleep(2000);
             // for testing purposes, move stoploss just to resume testing
-            decision.stopLoss = Symbol.Bid * 0.99;
+            decision.stopLoss = Symbol.Bid - 10 * Symbol.PipSize;
             Print("New stop loss for testing purposes: ", decision.stopLoss);
             //throw new InvalidDataException("Stop loss higher then bid price! Invalid input");
         }
@@ -286,7 +298,7 @@ public class GriffinCtrade : Robot
             Print($"ERROR: Stop loss {decision.stopLoss} higher then bid price! Invalid input");
 
             // for testing purposes, move stoploss just to resume testing
-            decision.stopLoss = Symbol.Bid * 0.99;
+            decision.stopLoss = Symbol.Bid - 10 * Symbol.PipSize;
             Print("New stop loss for testing purposes: ", decision.stopLoss);
             //throw new InvalidDataException("Stop loss higher then bid price! Invalid input");
         }
