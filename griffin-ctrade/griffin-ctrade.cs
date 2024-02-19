@@ -73,9 +73,9 @@ public class GriffinCtrade : Robot
                                                                         position.StopLoss.Value, position.EntryTime.ToString());
                 if (sellDecision.decision)
                 {
-                    ExitPositionInstant();
-                    // Print("Prepare position for exit - add take_profit and update stop_loss");
-                    // UpdatePosition(sellDecision, true);
+                    //ExitPositionInstant();
+                    Print("Prepare position for exit - add take_profit and update stop_loss");
+                    UpdatePosition(sellDecision, true);
                 }
                 else
                 {
