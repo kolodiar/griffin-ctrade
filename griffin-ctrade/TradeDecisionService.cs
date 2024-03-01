@@ -9,9 +9,9 @@ using cAlgo.API.Internals;
 
 public class TradeDecisionService
 {
-    private string buyUrl = "/api/v1/mt/buy";
-    private string sellUrl = "/api/v1/mt/sell";
-    private string sellUpdateUrl = "/api/v1/mt/sell-update";
+    private string buyUrl = "/api/v1/ctrader/buy";
+    private string sellUrl = "/api/v1/ctrader/sell";
+    private string sellUpdateUrl = "/api/v1/ctrader/sell-update";
 
     private HttpClient client = new HttpClient();
 
@@ -29,7 +29,7 @@ public class TradeDecisionService
         // Assuming initialization with specific values
         client.BaseAddress = new Uri("http://localhost:8001");
         
-        mainCurrency = "DOGE";
+        mainCurrency = "BTC";
         secondCurrency = "USD"; // Placeholder, adjust as needed
         ohlcSymbol = $"{mainCurrency}-{secondCurrency}";
         obdSymbol = $"{mainCurrency}{secondCurrency}T";
@@ -59,6 +59,7 @@ public class TradeDecisionService
 
         // Splitting response and parsing
         var responseParams = response.Split(',');
+        robot.Print($"Parsed params list: {responseParams[0]}, {responseParams[1]}, {responseParams[2]}, {responseParams[3]} (robot print)");
         bool buyDecision = responseParams[0] == "1";
         double volume = double.TryParse(responseParams[1], NumberStyles.Any, CultureInfo.InvariantCulture, out double parsedValue) ? parsedValue : double.NaN;
         double buyPrice = double.TryParse(responseParams[2], NumberStyles.Any, CultureInfo.InvariantCulture, out parsedValue) ? parsedValue : double.NaN;  // robot.Symbol.Ask * 0.999; 

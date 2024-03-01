@@ -10,7 +10,7 @@ using cAlgo.API.Collections;
 using cAlgo.API.Indicators;
 using cAlgo.API.Internals;
 
-[Robot(AccessRights = AccessRights.None)] // None - default, FullAccess - if errors with creating orders
+[Robot(AccessRights = AccessRights.FullAccess)] // None - default, FullAccess - if errors with creating orders
 public class GriffinCtrade : Robot
 {
     private DateTime lastActionTime = DateTime.Now.AddHours(-2); // move time back so the first iteration is successfull
@@ -117,7 +117,7 @@ public class GriffinCtrade : Robot
     private void OpenPositionInstant(AiEnterResponse decision)
     {
         ValidateEnterDecisionForInstantBuy(ref decision); // Assuming this method adjusts decision in-place
-        double volume = CalculateVolume(Symbol.Ask);
+        double volume = ConvertVolume(decision.volume);
         Print("Current Ask price: ", Symbol.Ask);
         Print($"Creating instant buy order: volume={volume}, order_price=0.0 (actual Ask will be used), stop_loss={decision.stopLoss}");
 
@@ -140,7 +140,7 @@ public class GriffinCtrade : Robot
     private void OpenPositionPending(AiEnterResponse decision)
     {
         ValidateEnterDecisionForBuyLimit(ref decision);
-        double volume = CalculateVolume(decision.orderPrice); // Ensure this calculates based on the decision's order price
+        double volume = ConvertVolume(decision.volume); // Ensure this calculates based on the decision's order price
     
         var StopLossInPips = (decision.orderPrice - decision.stopLoss) / Symbol.PipSize;
         Print("StopLoss_pips: ", StopLossInPips);
@@ -215,17 +215,30 @@ public class GriffinCtrade : Robot
         double percentageOfBalanceToUse = 0.007; // 0.007 for testing, 0.7 for real
         // How much we can buy for specified percentage of our balance with the given price
         double unitsToBuy = Account.Balance * percentageOfBalanceToUse / orderPrice;
+        Print("unitsToBuy: ", unitsToBuy);
         //Print("unitsToBuy: ", unitsToBuy);
         // double standardLots = unitsToBuy / Symbol.QuantityToVolumeInUnits(1); // Convert 1 unit of quantity to volume in lots for the symbol
         // Print("standardLots: ", standardLots);
 
         // Calculate the volume in steps that are valid for the symbol
         double volumeStep = Symbol.VolumeInUnitsStep; // in units
+        Print("volumeStep: ", volumeStep);
         //double roundedLots = Math.Floor(standardLots / volumeStep) * volumeStep;
         double roundedUnits = Math.Floor(unitsToBuy / volumeStep) * volumeStep;
+        Print("roundedUnits: ", roundedUnits);
         return roundedUnits;
         // Print("Volume rounded lots: ", roundedLots);
         // return roundedLots;
+    }
+
+    private double ConvertVolume(double volume)
+    {
+        // Calculate the volume in steps that are valid for the symbol
+        double volumeStep = Symbol.VolumeInUnitsStep; // in units
+        //double roundedLots = Math.Floor(standardLots / volumeStep) * volumeStep;
+        double roundedUnits = Math.Floor(volume / volumeStep) * volumeStep;
+        Print("roundedVolumeUnits: ", roundedUnits);
+        return roundedUnits;
     }
 
 
